@@ -1,0 +1,99 @@
+version: "3"
+name: corrid
+networks: 
+  net:
+
+services:
+  ########################################################################
+  ##                     Monitoring Infrastructure                      ##
+  ########################################################################
+  loki:
+    image: grafana/loki:${LOKI_VERSION:?}
+    container_name: loki
+    labels:
+      cz.cs-soft.service.kind: infra
+    ports:
+      - ${LOKI_PORT:?}:${LOKI_PORT:?}
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      # directory must be created first, with uid:gid 10001:10001
+      - ./volumes/loki:/loki
+      - ./infra/loki/loki-config.yaml:/etc/loki/local-config.yaml
+    networks:
+      - net
+
+  promtail:
+    image: grafana/promtail:${PROMTAIL_VERSION:?}
+    container_name: promtail
+    labels:
+      cz.cs-soft.service.kind: infra
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      # custom config will read logs from the containers of
+      # this project
+      - ./infra/promtail/promtail-config.yaml:/etc/promtail/config.yml
+      # to read container labels and logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers
+    networks:
+      - net
+
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_VERSION:?}
+    container_name: prometheus
+    user: root
+    labels:
+      cz.cs-soft.service.kind: infra
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - ${PROMETHEUS_PORT:?}:${PROMETHEUS_PORT:?}
+    networks:
+      - net
+
+  grafana:
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+        apiVersion: 1
+        datasources:
+        - name: Loki
+          type: loki
+          access: proxy
+          orgId: 1
+          url: http://loki:${LOKI_PORT:?}
+          basicAuth: false
+          isDefault: true
+          version: 1
+          editable: false
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          orgId: 1
+          url: http://prometheus:${PROMETHEUS_PORT:?}
+          basicAuth: false
+          version: 1
+          editable: false
+        EOF
+        /run.sh
+    image: grafana/grafana:${GRAFANA_VERSION:?}
+    container_name: grafana
+    labels:
+      cz.cs-soft.service.kind: infra
+    volumes:
+      # directory must be created first, with uid:gid 472:472
+      - ./volumes/grafana:/var/lib/grafana
+      # automatically configure the loki datasource
+      - ./volumes/grafana-provisioning/:/etc/grafana/provisioning/
+    ports:
+      - ${GRAFANA_PORT:?}:${GRAFANA_PORT:?}
+    networks:
+      - net

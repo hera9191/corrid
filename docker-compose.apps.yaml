@@ -1,0 +1,61 @@
+services:
+  ########################################################################
+  ##                             CorrID                                 ##
+  ########################################################################
+  toosimple:
+    build:
+      context: ./services/toosimple
+      dockerfile: Dockerfile
+      tags: 
+        - toosimple:${TOOSIMPLE_VERSION:?}
+    image: toosimple:${TOOSIMPLE_VERSION:?}
+    labels:
+      cz.cs-soft.service.kind: core
+    deploy:
+      replicas: 1
+    networks:
+      - net
+  
+  test:
+    image: nginx:${NGINX_VERSION:?}
+    container_name: test
+    labels:
+      cz.cs-soft.service.kind: nginx
+    networks:
+      - net
+
+  tyche:
+    build:
+      context: ./services/tyche
+      dockerfile: Dockerfile
+      target: runtime
+      tags:
+        - tyche:${TYCHE_VERSION:?}
+    image: tyche:${TYCHE_VERSION:?}
+    # container_name: tyche
+    labels:
+      cz.cs-soft.service.kind: core
+    deploy:
+      replicas: ${TYCHE_REPLICAS:?}
+    networks:
+      - net
+
+  tyche-lb:
+    image: nginx:${NGINX_VERSION:?}
+    container_name: tyche-lb
+    labels:
+      cz.cs-soft.service.kind: nginx
+    volumes:
+      - ./services/nginx/01-tyche-lb.sh:/docker-entrypoint.d/01-tyche-lb.sh
+      # - ./volumes/nginx-conf/default.conf:/etc/nginx/conf.d/default.conf
+      - ./volumes/nginx-log/:/var/log/nginx
+    environment:
+      - TYCHE_REPLICAS=${TYCHE_REPLICAS:?}
+      - TYCHE_PORT=${TYCHE_PORT:?}
+      - PROJECT_PREFIX=${COMPOSE_PROJECT_NAME:?}
+    ports:
+      - ${ENTRY_PORT:?}:${NGINX_PORT:?}
+    networks:
+      - net
+    depends_on:
+      - tyche
