@@ -1,4 +1,4 @@
-# Correlation ID
+# Correlation ID playground
 
 Small Lab for testing variouls logging stategy accross various languages and frameworks.
 
@@ -18,6 +18,11 @@ docker buildx version > /dev/null && echo OK || echo "ERROR: BuildKit plugin for
 
 ```bash
 git clone https://github.com/hera9191/corrid.git
+```
+
+## Quick Start
+
+```bash
 cd corrid
 # Build, Start and stop
 #   make build    - build all services
@@ -25,15 +30,19 @@ cd corrid
 #   make upd      - start all services in background
 #   make restart  - restart all services
 #   make down     - stop all services
-make  
+make
+# Open Grafana in browser
+xdg-open http://localhost:3000
+# Open Tyche in browser
+xdg-open http://localhost:8080/int
+# Open Prometheus in browser
+xdg-open http://localhost:9090
 ```
 
 ## Overview
 
 Labs is split into two docker compose files:
 
-- `docker-compose.base.yml` - contains base infrastructure (Grafana, Loki, Prometheus, Promtail)
-- `docker-compose.apps.yml` - contains all services and loadbalancers
 
 ### Links
 
@@ -41,18 +50,24 @@ Labs is split into two docker compose files:
 - [Prometheus http://localhost:9090](http://localhost:9090)
 - [Tyche http://localhost:8080/int](http://localhost:8080/int) - Random Int Generator (*Spring Boot*)
 
+### Project Structure
+
+- `services` - application services
+  - `tyche` - Random Int Generator (*Spring Boot*)
+  - `tyche-nginx` - Nginx loadbalancer for Tyche
+- `infra` - infrastructure services, Grafana, Loki, Prometheus, Promtail
+- `volumes` - volumes used by infrastructure services
+- `docker-compose.base.yml` - base infrastructure (Grafana, Loki, Prometheus, Promtail)
+- `docker-compose.apps.yml` - application services and loadbalancers
+- `.env` - contains environment variables
+- `Makefile` - shortcuts for docker-compose commands
+
 ## Loki
 
 Usefull queries:
 
 - `{kind="core"} |= `` | json` - get all logs witj label `kind=core` and aplly json filter
 - ```{kind="core"} |= `` | json | level = `fatal` ``` - to see all fatal logs records
-
-## Troubleshooting
-
-### Prometheus/Promtail labels
-
-In Prometheus like labels names are not allowed '.' and '-' characters. So, if you want to use correlation id as label, you should replace '.' and '-' characters with '_'.
 
 ## Java - Spring Boot
 
@@ -68,3 +83,10 @@ In Prometheus like labels names are not allowed '.' and '-' characters. So, if y
     - first run: 39 sec
     - later run: **4.5 sec**
 - [Custom Json Lockback Layout](https://github.com/raevilman/vlog-logback-json-data)
+
+## Troubleshooting
+
+### Prometheus/Promtail labels
+
+In Prometheus like labels names are not allowed '.' and '-' characters. So, if you want to use correlation id as label, you should replace '.' and '-' characters with '_'.
+
